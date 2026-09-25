@@ -1,0 +1,29 @@
+{}
+
+#
+#checklist:
+#  - id: C-001
+#    title: Restricted dynamic allocation
+#    severity: high
+#    applies_to: [c, cpp]
+
+#    intent: >
+#      Production firmware should avoid runtime heap allocation
+#      because it can cause fragmentation and non-deterministic latency.
+
+#    prohibited:
+#      - malloc
+#      - calloc
+#      - realloc
+#      - free
+#      - new
+#      - delete
+
+#    required_action: >
+#      Replace heap-managed objects with static storage or an approved
+#      fixed-capacity memory pool.
+
+#    verification:
+#      - Confirm heap usage is unchanged after runtime startup.
+#      - Run repeated lifecycle tests.
+#      - Test allocation-boundary conditions.

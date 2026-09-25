@@ -1,0 +1,234 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Embedded Review Assistant</title>
+<style>
+body{font-family:Inter,system-ui,sans-serif;background:#eef2f7;color:#162033;margin:0}
+.wrap{max: width 1200px;;margin:auto;padding:24px}
+.hero{background:linear-gradient(135deg,#123b5d,#0078d4);color:white;border-radius:18px;padding:32px;text-align:center;height: 60px;}
+h1{margin:0 0 8px;font-size:2rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+.card{background:white;border-radius:16px;padding:18px;box-shadow:0 6px 20px rgba(0,0,0,0.08);transition:transform .2s}
+.card:hover{transform:translateY(-3px)}
+.wide{grid-column:1/-1}
+textarea,input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:12px;font:14px ui-monospace,monospace;margin-top:8px}
+textarea{height:340px}
+button{background:#0078d4;color:white;border:0;border-radius:999px;padding:12px 18px;font-weight:700;cursor:pointer;margin:6px;transition:background .2s}
+button:hover{background:#005fa3}
+pre{white-space:pre-wrap;overflow:auto}
+.item{border-left:4px solid #94a3b8;padding:12px;margin:10px 0;background:#f9fafb;border-radius:10px;cursor:pointer;transition:background .2s}
+.item:hover{background:#f1f5f9}
+.High,.Blocker{border-color:#dc2626}
+.Medium{border-color:#d97706}
+.Low{border-color:#64748b}
+.meta{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.pill{background:#e2e8f0;border-radius:999px;padding:5px 9px}
+.details{display:block;margin-top:8px;animation:fadeIn .3s}
+.scrollable{max-height:500px;overflow-y:auto;padding-right:8px}
+.scrollable::-webkit-scrollbar{width:8px}
+.scrollable::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+.loader{border:4px solid #f3f3f3;border-top:4px solid #0078d4;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:40px auto}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="hero">
+    <h1>Embedded C/C++ Review Assistant</h1>
+    <p>Analyze repository structure, naming, checklist, and maintainability with LangGraph & OpenAI.</p>
+  </section>
+  <div class="grid">
+    <section class="card">
+      <h2>Paste code</h2>
+      <input id="path" value="src/controller.cpp">
+      <textarea id="code">#include "controller.hpp"
+#include <cstdlib>
+class controller { };
+void start(){ auto x = new int(7); }</textarea>
+      <button onclick="reviewCode()">Review Code</button>
+      <button onclick="reviewRepo()">Review ZIP Repository</button>
+      <input id="repo" type="file" accept=".zip">
+    </section>
+    <section class="card">
+      <h2>Custom YAML rules</h2>
+      <textarea id="rules">checklist:
+  - id: TEAM-001
+    title: Ban volatile cast
+    pattern: "const_cast<"
+    severity: high
+    applies_to: [cpp]
+    message: "Unsafe cast policy violation."
+    remediation: "Remove the cast or redesign the ownership interface."
+
+files:
+  source_regex: "^[a-z][a-z0-9_]*\\.(cpp|c)$"
+</textarea>
+    </section>
+    <section class="card wide">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Results</h2>
+        <button onclick="exportHTML()">Export to HTML</button>
+      </div>
+      <div id="result" class="scrollable">Run a review to see findings.</div>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+
+function toggleDetails(el){
+  const details=el.querySelector('.details');
+  details.style.display=details.style.display==='block'?'block':'block';
+}
+
+function show(data){
+  let s=data.summary||{};
+  let html=`<div class="meta"><span class="pill">Files: ${s.files||0}</span><span class="pill">Findings: ${s.findings||0}</span><span class="pill">High risk: ${s.high_risk||0}</span></div>`;
+  (data.findings || []).forEach((f) => {
+    const start = f.start_line || f.line || 1;
+    const end = f.end_line || start;
+    const location = start===end?`${start}`:`${start}-${end}`;
+    html += `
+      <div class="item ${f.severity}" onclick="toggleDetails(this)">
+        <b>${f.severity} · ${f.rule_id}</b>
+        <span class="pill">${f.source || "Rules engine"}</span>
+        <div class="details">
+          <p><b>Location:</b> ${f.file}:${location}</p>
+          <p><b>Problem:</b> ${f.title}</p>
+          <p><b>Evidence:</b> ${f.evidence}</p>
+          <p><b>Impact:</b> ${f.why_it_matters || "Not provided"}</p>
+          <p><b>What needs to change:</b> ${f.suggested_change || f.remediation}</p>
+          ${f.before_code?`<p><b>Before:</b></p><pre>${f.before_code}</pre>`:""}
+          ${f.after_code?`<p><b>After:</b></p><pre>${f.after_code}</pre>`:""}
+          <p><b>Verification:</b> ${f.verification || "Build and test the change."}</p>
+          <p><b>Confidence:</b> ${Math.round((f.confidence || 0)*100)}%</p>
+        </div>
+      </div>`;
+  });
+  $('result').innerHTML=html;
+}
+
+function showLoader(){
+  $('result').innerHTML='<div class="loader"></div><p style="text-align:center">Analyzing, please wait...</p>';
+}
+
+async function post(url,body){
+  showLoader();
+  try{
+    const r=await fetch(url,{method:'POST',body});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.detail||r.status);
+    show(d);
+  }catch(e){
+    $('result').textContent="Error: "+e;
+  }
+}
+
+async function reviewCode(){
+  try{
+    let b=new FormData();
+    b.append('path',$('path').value);
+    b.append('code',$('code').value);
+    b.append('rules_yaml',$('rules').value);
+    await post('/api/review/code',b);
+  }catch(e){$('result').textContent=e}
+}
+
+async function reviewRepo(){
+  let f=$('repo').files[0];
+  if(!f)return alert('Choose a ZIP file');
+  try{
+    let b=new FormData();
+    b.append('repository',f);
+    b.append('rules_yaml',$('rules').value);
+    await post('/api/review/repository',b);
+  }catch(e){$('result').textContent=e}
+}
+
+function exportHTML() {
+  const findings = [];
+
+  document.querySelectorAll('#result .item').forEach(item => {
+    const details = item.querySelector('.details');
+
+    if (details) {
+      findings.push({
+        Rule: item.querySelector('b')?.textContent || '',
+        Source: item.querySelector('.pill')?.textContent || '',
+        Details: details.innerText.replace(/\n/g, ' ')
+      });
+    }
+  });
+
+  let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Review Results</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table {
+          border-collapse: collapse;
+          width: 100%;
+        }
+        th, td {
+          border: 1px solid #ccc;
+          padding: 8px;
+          text-align: left;
+        }
+        th {
+          background: #f4f4f4;
+        }
+      </style>
+    </head>
+    <body>
+      <h2>Review Results</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Rule</th>
+            <th>Source</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  findings.forEach(row => {
+    html += `
+      <tr>
+        <td>${row.Rule}</td>
+        <td>${row.Source}</td>
+        <td>${row.Details}</td>
+      </tr>
+    `;
+  });
+
+  html += `
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'review_results.html';
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+</script>
+</body>
+</html>
