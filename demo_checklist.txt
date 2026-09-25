@@ -1,0 +1,89 @@
+checklist:
+  - id: C-001
+    title: Restricted dynamic allocation
+    severity: high
+    applies_to: [c, cpp]
+
+    intent: >
+      Production firmware should avoid runtime heap allocation
+      because it can cause fragmentation and non-deterministic latency.
+
+    prohibited:
+      - malloc
+      - calloc
+      - realloc
+      - free
+      - new
+      - delete
+
+    required_action: >
+      Replace heap-managed objects with static storage or an approved
+      fixed-capacity memory pool.
+
+    verification:
+      - Confirm heap usage is unchanged after runtime startup.
+      - Run repeated lifecycle tests.
+      - Test allocation-boundary conditions.
+
+  - id: C-002
+    title: Unsafe string operations
+    severity: high
+    applies_to: [c, cpp]
+
+    intent: >
+      Unbounded string operations can cause buffer overflows
+      and memory corruption.
+
+    prohibited:
+      - strcpy
+      - strcat
+      - sprintf
+      - gets
+
+    required_action: >
+      Replace unbounded string operations with size-aware
+      alternatives and verify destination buffer capacity.
+
+    verification:
+      - Test maximum permitted input length.
+      - Test oversized input.
+      - Verify destination boundaries.
+
+  - id: C-003
+    title: C-style casts are prohibited
+    severity: medium
+    applies_to: [cpp]
+
+    intent: >
+      C-style casts can hide potentially unsafe type conversions
+      and reduce code readability.
+
+    prohibited:
+      - C-style casts
+
+    required_action: >
+      Replace C-style casts with an appropriate explicit
+      C++ cast such as static_cast.
+
+    verification:
+      - Verify source and destination types.
+      - Confirm conversion behavior is unchanged.
+
+  - id: C-004
+    title: Avoid unexplained magic numbers
+    severity: medium
+    applies_to: [c, cpp]
+
+    intent: >
+      Safety and control thresholds should be expressed using
+      meaningful named constants.
+
+    prohibited:
+      - unexplained numeric thresholds in control logic
+
+    required_action: >
+      Define important thresholds as named constexpr values.
+
+    verification:
+      - Verify constant names explain their purpose.
+      - Confirm behavior remains unchanged.

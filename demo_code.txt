@@ -1,0 +1,177 @@
+#include <iostream>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
+
+class Sensor
+{
+public:
+    Sensor(int id) : id_(id) {}
+
+    int readTemperature()
+    {
+        return 42 + id_;
+    }
+
+private:
+    int id_;
+};
+
+class ThermalController
+{
+public:
+    ThermalController()
+        : sensorBuffer_(nullptr),
+          sensorCount_(0),
+          running_(false)
+    {
+    }
+
+    void initialize(int sensorCount)
+    {
+        sensorCount_ = sensorCount;
+
+        // Runtime heap allocation
+        sensorBuffer_ = new Sensor*[sensorCount_];
+
+        for (int i = 0; i < sensorCount_; ++i)
+        {
+            // Additional runtime allocations
+            sensorBuffer_[i] = new Sensor(i);
+        }
+
+        // C allocation mixed with C++
+        char* diagnosticBuffer =
+            (char*)malloc(256);
+
+        if (diagnos*icBuffer != nullptr)
+        {
+   *        strcpy(
+                di*gnosticBuffer,
+                "Th*rmal controller initialized");
+
+  *         std::cout << diagnosticBu*fer
+                      << std::*ndl;
+        }
+
+        // Memory *s intentionally not released here
+*       running_ = true;
+    }
+
+   *void process()
+    {
+        if (!*unning_)
+        {
+            ret*rn;
+        }
+
+        for (int i * 0; i < sensorCount_; ++i)
+       *{
+            int temperature =
+  *             sensorBuffer_[i]->rea*Temperature();
+
+            // Unexplained magic number
+            if (temperature > 75)
+            {
+                logWarning(
+                    "Temperature threshold exceeded");
+            }
+
+            // Another unexplained threshold
+            if (temperature > 100)
+            {
+                emergencyShutdown();
+            }
+        }
+    }
+
+    void updateConfiguration(
+        const char* deviceName,
+        double threshold)
+    {
+        char name[12];
+
+        // Potential unsafe string operation
+        strcpy(name, deviceName);
+
+        // C-style conversion
+        int integerThreshold =
+            (int)threshold;
+
+        std::cout
+            << "Device: " << name
+            << ", Threshold: "
+            << integerThreshold
+            << std::endl;
+    }
+
+    void shutdown()
+    {
+        if (!running_)
+        {
+            return;
+        }
+
+        for (int i = 0; i < sensorCount_; ++i)
+        {
+            // Runtime deallocation
+            delete sensorBuffer_[i];
+        }
+
+        delete[] sensorBuffer_;
+        sensorBuffer_ = nullptr;
+
+        running_ = false;
+    }
+
+private:
+    void logWarning(const char* message)
+    {
+        // Another runtime allocation hidden
+        // inside a helper function
+        char* logBuffer =
+            (char*)calloc(128, sizeof(char));
+
+        if (logBuffer != nullptr)
+        {
+            strcpy(logBuffer, message);
+
+            std::cout
+                << "[WARNING] "
+                << logBuffer
+                << std::endl;
+
+            free(logBuffer);
+        }
+    }
+
+    void emergencyShutdown()
+    {
+        std::cout
+            << "Emergency shutdown triggered"
+            << std::endl;
+
+        running_ = false;
+    }
+
+private:
+    Sensor** sensorBuffer_;
+    int sensorCount_;
+    bool running_;
+};
+
+int main()
+{
+    ThermalController controller;
+
+    controller.initialize(4);
+
+    controller.updateConfiguration(
+        "PRIMARY_THERMAL_SENSOR",
+        82.75);
+
+    controller.process();
+    controller.shutdown();
+
+    return 0;
+}
